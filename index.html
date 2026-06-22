@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <title>Simulazione Social Engineering — Andrea</title>
+
+  <style>
+    /* ===========================================================
+       PALETTE DEVLIN.AI
+       Sfondo nero puro, widget antracite, glow blu/viola esterno,
+       accenti indigo/violet sui bottoni.
+       =========================================================== */
+    :root {
+      --bg-page: #000000;
+      --bg-widget: #0d1018;
+      --bg-bubble: #1a1f2e;
+      --bg-input: rgba(255, 255, 255, 0.04);
+      --border-widget: rgba(255, 255, 255, 0.08);
+      --border-bubble: rgba(255, 255, 255, 0.06);
+      --border-input: rgba(140, 160, 220, 0.35);
+      --text-primary: #f1f3f8;
+      --text-secondary: #8a93a8;
+      --text-muted: #5a6378;
+      --accent-blue: #4f6df5;
+      --accent-violet: #8b5cf6;
+      --send-bg: rgba(99, 102, 241, 0.45);
+      --send-bg-hover: rgba(99, 102, 241, 0.75);
+      --glow-blue: rgba(79, 109, 245, 0.55);
+      --glow-violet: rgba(139, 92, 246, 0.45);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    #skip-link {
+      position: absolute;
+      top: -52px; left: 0;
+      background: var(--accent-blue);
+      color: #fff;
+      padding: 10px 14px;
+      font-weight: 700;
+      text-decoration: none;
+      z-index: 9999;
+      border-radius: 0 0 6px 0;
+    }
+    #skip-link:focus { top: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0; padding: 0;
+      overflow-wrap: break-word;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    button, input, textarea { font-family: inherit; }
+
+    :focus-visible {
+      outline: 2px solid var(--accent-blue);
+      outline-offset: 2px;
+    }
+
+    /* ===========================================================
+       WIDGET con GLOW esterno blu/viola
+       =========================================================== */
+    .widget {
+      width: 100%;
+      max-width: 720px;
+      height: 600px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 18px;
+      background: var(--bg-widget);
+      border: 1px solid var(--border-widget);
+      position: relative;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.02),
+        0 0 30px 2px var(--glow-blue),
+        0 0 80px 10px var(--glow-violet),
+        0 0 120px 30px rgba(79, 109, 245, 0.15);
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    /* ===========================================================
+       HEADER MINIMALE (turn indicator discreto in alto a destra)
+       =========================================================== */
+    .w-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      height: 18px;
+    }
+
+    .turn-indicator {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+    /* ===========================================================
+       BODY messaggi
+       =========================================================== */
+    .w-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 4px;
+      scroll-behavior: smooth;
+    }
+
+    .w-body::-webkit-scrollbar { width: 5px; }
+    .w-body::-webkit-scrollbar-track { background: transparent; }
+    .w-body::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+    }
+
+    .msg {
+      display: flex;
+      max-width: 88%;
+      animation: fadeIn .25s ease;
+    }
+    .msg.bot { align-self: flex-start; }
+    .msg.user { align-self: flex-end; }
+
+    .m-bubble {
+      padding: 16px 20px;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      border-radius: 14px;
+      font-weight: 400;
+    }
+
+    .msg.bot .m-bubble {
+      background: var(--bg-bubble);
+      color: var(--text-primary);
+      border: 1px solid var(--border-bubble);
+    }
+
+    .msg.user .m-bubble {
+      background: linear-gradient(135deg, rgba(79, 109, 245, 0.25), rgba(139, 92, 246, 0.25));
+      color: var(--text-primary);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+
+    .m-bubble strong { font-weight: 600; color: #fff; }
+
+    /* ===========================================================
+       OPZIONI / SUGGERIMENTI di risposta
+       =========================================================== */
+    .choices-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-self: flex-start;
+      width: 100%;
+      max-width: 100%;
+      margin-top: 2px;
+    }
+
+    .choices-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .choice-btn {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(140, 160, 220, 0.2);
+      color: var(--text-primary);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.88rem;
+      font-weight: 400;
+      cursor: pointer;
+      text-align: left;
+      line-height: 1.5;
+      transition: background-color 0.18s, border-color 0.18s, transform 0.18s;
+    }
+
+    .choice-btn:hover:not(:disabled) {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(139, 92, 246, 0.5);
+      transform: translateX(2px);
+    }
+
+    .choice-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* ===========================================================
+       TYPING INDICATOR
+       =========================================================== */
+    .typing-dot {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .typing-dot span {
+      width: 7px; height: 7px;
+      background: var(--accent-violet);
+      border-radius: 50%;
+      animation: tdot 0.9s infinite;
+    }
+    .typing-dot span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes tdot {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ===========================================================
+       FOOTER: input + bottone Invia
+       =========================================================== */
+    .w-footer {
+      margin-top: 16px;
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    #userInput {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      color: var(--text-primary);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+    }
+    #userInput::placeholder { color: var(--text-secondary); }
+
+    #userInput:focus {
+      border-color: var(--accent-blue);
+      background: rgba(255,255,255,0.06);
+    }
+
+    #sendBtn {
+      background: var(--send-bg);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      color: #fff;
+      border-radius: 12px;
+      padding: 0 26px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.18s, transform 0.15s;
+    }
+    #sendBtn:hover:not(:disabled) {
+      background: var(--send-bg-hover);
+    }
+    #userInput:disabled, #sendBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .input-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+      letter-spacing: 0.2px;
+    }
+    .input-hint .brand {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    .input-hint .brand .dot { color: var(--accent-blue); }
+
+    /* ===========================================================
+       FINAL FEEDBACK CARD
+       =========================================================== */
+    .feedback-card {
+      align-self: stretch;
+      padding: 18px 20px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--bg-bubble);
+      animation: fadeIn 0.3s ease;
+    }
+    .feedback-card.success {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.04));
+      border-color: rgba(34, 197, 94, 0.35);
+    }
+    .feedback-card.failure {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04));
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+    .feedback-card.neutral {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.04));
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .feedback-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+    .feedback-card.success .feedback-header { color: #4ade80; }
+    .feedback-card.failure .feedback-header { color: #f87171; }
+    .feedback-card.neutral .feedback-header { color: #fbbf24; }
+
+    .feedback-icon {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .feedback-card.success .feedback-icon { background: rgba(34, 197, 94, 0.18); }
+    .feedback-card.failure .feedback-icon { background: rgba(239, 68, 68, 0.18); }
+    .feedback-card.neutral .feedback-icon { background: rgba(245, 158, 11, 0.18); }
+
+    .feedback-body {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text-primary);
+    }
+    .feedback-body ul { padding-left: 18px; margin-top: 8px; }
+    .feedback-body li { margin-bottom: 4px; }
+
+    .restart-btn {
+      margin-top: 14px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      color: #e6e8f5;
+      border-radius: 10px;
+      padding: 9px 16px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.18s;
+    }
+    .restart-btn:hover {
+      background: rgba(99, 102, 241, 0.4);
+    }
+
+    /* ===========================================================
+       RESPONSIVE
+       =========================================================== */
+    @media (max-width: 620px) {
+      body { padding: 0; }
+      .widget {
+        max-width: none;
+        height: 100vh;
+        border-radius: 0;
+        padding: 16px;
+        box-shadow: none;
+      }
+      .m-bubble { font-size: 0.9rem; padding: 14px 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <a href="#chatBody" id="skip-link">Vai alla conversazione</a>
+
+  <div id="globalAnnouncer" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+  <section class="widget" aria-labelledby="chatTitle">
+
+    <h1 id="chatTitle" class="sr-only">Simulazione chat con Andrea — Security Service Desk</h1>
+
+    <header class="w-header">
+      <span class="turn-indicator" id="turnBadge" aria-live="polite">Turno 1 di 5</span>
+    </header>
+
+    <main class="w-body"
+          id="chatBody"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label="Conversazione con Andrea"
+          tabindex="-1">
+    </main>
+
+    <footer class="w-footer" aria-label="Scrivi una risposta">
+      <div class="input-row">
+        <label for="userInput" class="sr-only">Scrivi la tua risposta ad Andrea</label>
+        <input id="userInput"
+               type="text"
+               placeholder="Scrivi la tua risposta..."
+               autocomplete="off"
+               aria-controls="chatBody">
+        <button id="sendBtn" type="button" aria-label="Invia messaggio">Invia</button>
+      </div>
+      <p class="input-hint">
+        Simulazione IA </span>
+      </p>
+    </footer>
+
+  </section>
+
+  <script>
+    /* ============================================================
+       CONFIGURAZIONE SIMULAZIONE
+       ============================================================ */
+    const MAX_TURNS = 5;
+
+    const state = {
+      turn: 0,
+      complianceScore: 0,
+      refusalScore: 0,
+      sharedSensitive: false,
+      askedVerification: false,
+      gaveRemoteAccess: false,
+      ended: false
+    };
+
+    const ANDREA_OPENING = "Ciao, sono Andrea del team Security Service Desk. Abbiamo rilevato una possibile violazione sul tuo account negli ultimi minuti e ho bisogno che tu verifichi alcune informazioni subito, prima che siamo costretti a bloccare l'accesso.";
+
+    const TURNS = [
+      // --- TURNO 1 ----------------------------------------------------------
+      {
+        choices: [
+          {
+            text: "Certo Andrea, dimmi pure cosa ti serve.",
+            strategy: "comply",
+            andrea: "Perfetto, grazie per la collaborazione. Per prima cosa confermami il tuo <strong>username aziendale</strong> e l'ultimo accesso che ricordi. Mi serve per incrociare i log."
+          },
+          {
+            text: "Puoi inviarmi una mail dal tuo indirizzo aziendale ufficiale?",
+            strategy: "verify",
+            andrea: "Senti, <strong>non c'è tempo per le mail</strong>. La violazione è in corso. Se aspettiamo i canali standard rischiamo di bloccare metà degli account del tuo team. Andiamo avanti qui."
+          },
+          {
+            text: "Non risulta nessun alert dal mio lato. Puoi darmi il tuo employee ID?",
+            strategy: "question",
+            andrea: "Il mio ID è interno e non viene comunicato in chat per policy. Quello che conta è che <strong>l'allarme è già stato escalato</strong>. Procediamo: di quale software fai uso più spesso?"
+          },
+          {
+            text: "Preferisco prima chiudere la chat e chiamare l'helpdesk al numero ufficiale.",
+            strategy: "refuse",
+            andrea: "Aspetta un attimo. Se chiami il numero generale finisci in coda e nel frattempo l'attaccante è ancora dentro. Restiamo qui, è <strong>molto più veloce</strong>."
+          }
+        ]
+      },
+      // --- TURNO 2 ----------------------------------------------------------
+      {
+        choices: [
+          {
+            text: "Ok, il mio username è quello aziendale standard. Cosa serve ancora?",
+            strategy: "comply",
+            andrea: "Benissimo. Adesso ho bisogno che tu mi <strong>condivida lo schermo</strong> per qualche minuto, così verifico le sessioni attive. Hai TeamViewer o AnyDesk installato?"
+          },
+          {
+            text: "Posso aprire un ticket interno e citarti, così risulti come riferimento.",
+            strategy: "verify",
+            andrea: "I ticket richiedono ore. Io ho un canale prioritario. <strong>Fidati</strong>, lo facciamo tutti i giorni con le persone del tuo dipartimento."
+          },
+          {
+            text: "Mi dai il numero della tua sede così ti richiamo io?",
+            strategy: "question",
+            andrea: "Sono in un open space, non riceverei bene. Restiamo in chat: è la procedura standard per questo tipo di intervento <strong>urgente</strong>."
+          },
+          {
+            text: "La nostra policy mi vieta di condividere informazioni in canali non verificati.",
+            strategy: "refuse",
+            andrea: "Ok, capisco la prudenza. Ma considera che <strong>il tempo gioca contro di noi</strong>. Almeno conferma se hai notato accessi strani nell'ultima ora?"
+          }
+        ]
+      },
+      // --- TURNO 3 ----------------------------------------------------------
+      {
+        choices: [
+          {
+            text: "Sì, posso installare AnyDesk e condividere lo schermo.",
+            strategy: "comply",
+            endsSimulation: true,
+            andrea: "Ottimo. Ti mando il link adesso. Una volta installato dammi il <strong>codice a 9 cifre</strong> e accetta la connessione… <em>[L'attaccante ha ottenuto accesso al tuo dispositivo. La simulazione termina qui.]</em>"
+          },
+          {
+            text: "Voglio prima verificare la tua identità con il mio responsabile.",
+            strategy: "verify",
+            andrea: "Coinvolgere altri ora <strong>peggiora la situazione</strong>: più persone toccano l'account, più tracce sporche lasciamo nei log. Continuiamo solo io e te."
+          },
+          {
+            text: "Inviami una richiesta dal sistema di ticketing ufficiale e ne riparliamo.",
+            strategy: "question",
+            andrea: "Il ticketing è giù da stamattina per manutenzione, non lo sapevi? <strong>Per questo</strong> siamo costretti a passare dalla chat interna."
+          },
+          {
+            text: "Non condividerò nulla finché non avrò verificato la tua identità tramite canali ufficiali.",
+            strategy: "refuse",
+            andrea: "Va bene, capisco. Allora almeno aiutami così: <strong>aprimi tu</strong> Impostazioni → Account e leggimi cosa vedi nella sezione 'Sessioni attive'."
+          }
+        ]
+      },
+      // --- TURNO 4 ----------------------------------------------------------
+      {
+        choices: [
+          {
+            text: "Ecco il codice AnyDesk: te lo mando subito.",
+            strategy: "comply",
+            andrea: "Ricevuto. Quando vedi il prompt sul tuo schermo, premi <strong>Accetta</strong> e <strong>spunta la casella</strong> per consentire l'accesso anche senza tua presenza. Ci penso io a chiudere tutto."
+          },
+          {
+            text: "Mando uno screenshot al mio team leader prima di proseguire.",
+            strategy: "verify",
+            andrea: "Davvero non capisci la gravità? <strong>Mentre tu coinvolgi altri</strong>, qualcuno sta esfiltrando i tuoi dati. Stiamo perdendo minuti preziosi."
+          },
+          {
+            text: "Dammi il tuo nome completo, matricola e responsabile diretto, li verifico su Outlook.",
+            strategy: "question",
+            andrea: "Te l'ho già detto: per policy <strong>non posso</strong> divulgare quei dettagli su un canale potenzialmente compromesso. È una procedura di sicurezza."
+          },
+          {
+            text: "Chiudo questa conversazione e segnalo l'episodio al SOC come possibile phishing.",
+            strategy: "refuse",
+            andrea: "Aspetta! Non segnalare nulla, è <strong>tutto regolare</strong>. Va bene, lasciamo perdere l'accesso remoto. Almeno dimmi la <strong>password attuale</strong> così la cambio io dal backend."
+          }
+        ]
+      },
+      // --- TURNO 5 ----------------------------------------------------------
+      {
+        choices: [
+          {
+            text: "Ok, la mia password è quella che uso da sempre, te la scrivo.",
+            strategy: "comply",
+            andrea: "Perfetto, ho ricevuto tutto. <strong>Ottimo lavoro</strong>. Adesso 'chiudo' io l'incidente. — [La sessione di chat si interrompe.]"
+          },
+          {
+            text: "Non condivido password con nessuno, mai. Mi disconnetto.",
+            strategy: "refuse",
+            andrea: "Va bene, capisco. — [Andrea esce dalla chat senza ulteriori messaggi.]"
+          },
+          {
+            text: "Sto chiamando ora il numero ufficiale dell'helpdesk per verificare.",
+            strategy: "refuse",
+            andrea: "Come vuoi tu. — [Andrea esce dalla chat.]"
+          },
+          {
+            text: "Segnalo questa conversazione al SOC come tentativo di social engineering.",
+            strategy: "refuse",
+            andrea: "— [Nessuna risposta. Il contatto Andrea risulta disconnesso.]"
+          }
+        ]
+      }
+    ];
+
+    /* ============================================================
+       DOM REFS
+       ============================================================ */
+    const chatBody = document.getElementById("chatBody");
+    const globalAnnouncer = document.getElementById("globalAnnouncer");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const turnBadge = document.getElementById("turnBadge");
+
+    function announce(message) {
+      globalAnnouncer.textContent = "";
+      setTimeout(() => { globalAnnouncer.textContent = message; }, 30);
+    }
+
+    /* ============================================================
+       RENDER MESSAGGI
+       ============================================================ */
+    function addMsg(html, role) {
+      const wrapper = document.createElement("div");
+      wrapper.className = `msg ${role}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = "m-bubble";
+
+      const speaker = document.createElement("span");
+      speaker.className = "sr-only";
+      speaker.textContent = role === "bot" ? "Andrea: " : "Tu: ";
+      bubble.appendChild(speaker);
+      bubble.insertAdjacentHTML("beforeend", html);
+
+      wrapper.appendChild(bubble);
+      chatBody.appendChild(wrapper);
+      chatBody.scrollTop = chatBody.scrollHeight;
+      return bubble;
+    }
+
+    function addTyping() {
+      const wrapper = document.createElement("div");
+      wrapper.className = "msg bot";
+      wrapper.id = "typing";
+      wrapper.setAttribute("aria-hidden", "true");
+      wrapper.innerHTML = `
+        <div class="m-bubble">
+          <div class="typing-dot"><span></span><span></span><span></span></div>
+        </div>`;
+      chatBody.appendChild(wrapper);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function removeTyping() {
+      const t = document.getElementById("typing");
+      if (t) t.remove();
+    }
+
+    /* ============================================================
+       SCELTE UTENTE
+       ============================================================ */
+    function removeOldChoices() {
+      document.querySelectorAll(".choices-wrap").forEach(el => el.remove());
+    }
+
+    function renderChoices() {
+      removeOldChoices();
+      if (state.ended) return;
+
+      const turnData = TURNS[state.turn];
+      if (!turnData) return;
+
+      const container = document.createElement("div");
+      container.className = "choices-wrap";
+      container.setAttribute("role", "group");
+      container.setAttribute("aria-label", "Opzioni di risposta");
+
+      const label = document.createElement("div");
+      label.className = "choices-label";
+      label.textContent = "Come rispondi?";
+      container.appendChild(label);
+
+      turnData.choices.forEach((choice) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice-btn";
+        btn.textContent = choice.text;
+        btn.addEventListener("click", () => handleChoice(choice));
+        container.appendChild(btn);
+      });
+
+      chatBody.appendChild(container);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    /* ============================================================
+       LOGICA TURNO
+       ============================================================ */
+    function handleChoice(choice) {
+      if (state.ended) return;
+
+      removeOldChoices();
+      addMsg(choice.text, "user");
+
+      if (choice.strategy === "comply") state.complianceScore++;
+      if (choice.strategy === "refuse") state.refusalScore++;
+      if (choice.strategy === "verify") {
+        state.refusalScore++;
+        state.askedVerification = true;
+      }
+      if (choice.strategy === "question") state.askedVerification = true;
+
+      if (choice.strategy === "comply" && state.turn >= 2) {
+        state.sharedSensitive = true;
+      }
+
+      // L'utente ha accettato di installare il software di accesso remoto:
+      // la simulazione termina subito con esito "failure".
+      if (choice.endsSimulation) {
+        state.gaveRemoteAccess = true;
+        state.sharedSensitive = true;
+      }
+
+      state.turn++;
+      updateTurnBadge();
+
+      addTyping();
+      setTimeout(() => {
+        removeTyping();
+        addMsg(choice.andrea, "bot");
+
+        if (choice.endsSimulation || state.turn >= MAX_TURNS) {
+          setTimeout(endSimulation, 700);
+        } else {
+          setTimeout(renderChoices, 350);
+        }
+      }, 900);
+    }
+
+    function handleFreeInput(text) {
+      if (state.ended) return;
+      if (!text.trim()) return;
+
+      removeOldChoices();
+      addMsg(text, "user");
+
+      const t = text.toLowerCase();
+      let strategy = "question";
+      let andreaReply = "";
+
+      const wordsRefuse = ["no", "rifiuto", "non posso", "non condivido", "phishing", "segnalo", "soc", "helpdesk", "ufficiale", "policy", "chiudo", "blocco"];
+      const wordsComply = ["ok", "certo", "ecco", "password", "username", "accesso", "anydesk", "teamviewer", "schermo", "codice"];
+      const wordsVerify = ["verifico", "verifica", "identità", "responsabile", "ticket", "mail", "email", "matricola", "employee id", "richiamo", "chiamo"];
+      // Parole che indicano accettazione esplicita dell'installazione del software
+      // di accesso remoto: in questo caso la simulazione termina subito.
+      const wordsRemoteAccess = ["anydesk", "teamviewer", "installo", "installare", "condivido lo schermo", "condividere lo schermo", "accesso remoto", "remote access"];
+      const triggersRemoteAccess = wordsRemoteAccess.some(w => t.includes(w));
+
+      if (wordsComply.some(w => t.includes(w))) strategy = "comply";
+      else if (wordsRefuse.some(w => t.includes(w))) strategy = "refuse";
+      else if (wordsVerify.some(w => t.includes(w))) strategy = "verify";
+
+      if (strategy === "comply") {
+        state.complianceScore++;
+        if (state.turn >= 2) state.sharedSensitive = true;
+        if (triggersRemoteAccess) {
+          state.gaveRemoteAccess = true;
+          state.sharedSensitive = true;
+          andreaReply = "Ottimo. Ti mando il link adesso. Una volta installato dammi il <strong>codice a 9 cifre</strong> e accetta la connessione… <em>[L'attaccante ha ottenuto accesso al tuo dispositivo. La simulazione termina qui.]</em>";
+        } else {
+          andreaReply = "Perfetto, grazie. <strong>Procediamo subito</strong>: ho bisogno anche di una conferma del tuo accesso adesso, così chiudiamo l'incidente.";
+        }
+      } else if (strategy === "refuse") {
+        state.refusalScore++;
+        andreaReply = "Capisco la tua prudenza, ma ti assicuro che <strong>il tempo è critico</strong>. Possiamo almeno fare un passaggio veloce insieme?";
+      } else if (strategy === "verify") {
+        state.refusalScore++;
+        state.askedVerification = true;
+        andreaReply = "Non c'è tempo per le verifiche standard. <strong>Fidati</strong>, sono dell'IT centrale, lo faccio ogni giorno.";
+      } else {
+        andreaReply = "Non posso entrare nei dettagli su un canale potenzialmente compromesso. <strong>Procediamo</strong>: mi confermi se hai ricevuto altri messaggi sospetti oggi?";
+      }
+
+      state.turn++;
+      updateTurnBadge();
+
+      addTyping();
+      setTimeout(() => {
+        removeTyping();
+        addMsg(andreaReply, "bot");
+        if (state.gaveRemoteAccess || state.turn >= MAX_TURNS) {
+          setTimeout(endSimulation, 700);
+        } else {
+          setTimeout(renderChoices, 350);
+        }
+      }, 900);
+    }
+
+    function updateTurnBadge() {
+      const shown = Math.min(state.turn + 1, MAX_TURNS);
+      turnBadge.textContent = state.ended
+        ? "Simulazione conclusa"
+        : `Turno ${shown} di ${MAX_TURNS}`;
+    }
+
+    /* ============================================================
+       FINE SIMULAZIONE + INTEGRAZIONE STORYLINE
+       ============================================================ */
+    function endSimulation() {
+      if (state.ended) return;
+      state.ended = true;
+      updateTurnBadge();
+
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+      userInput.placeholder = "Simulazione completata";
+      removeOldChoices();
+
+      let type = "neutral";
+      let title = "Simulazione completata";
+      let icon = "i";
+      let body = "";
+
+      if (state.gaveRemoteAccess) {
+        type = "failure";
+        title = "Attacco riuscito — accesso remoto concesso";
+        icon = "✗";
+        body = `
+          Hai accettato di <strong>installare un software di accesso remoto</strong> richiesto da un contatto non verificato.
+          Andrea era un attaccante: con il codice di sessione ha ottenuto il <strong>controllo completo del tuo dispositivo</strong>,
+          aggirando ogni protezione aziendale.
+          <ul>
+            <li>L'IT aziendale <strong>non installa mai</strong> software di accesso remoto attraverso una chat non sollecitata.</li>
+            <li>La richiesta di urgenza è una tecnica classica di <strong>pretexting</strong>.</li>
+            <li>In caso di dubbio, <strong>chiudi la chat</strong> e contatta l'helpdesk al numero ufficiale.</li>
+          </ul>`;
+      } else if (state.sharedSensitive) {
+        type = "failure";
+        title = "Attacco riuscito — credenziali compromesse";
+        icon = "✗";
+        body = `
+          Hai condiviso informazioni o accessi sensibili con un contatto <strong>non verificato</strong>.
+          Andrea era un attaccante che ha usato la tecnica del <strong>pretexting</strong>
+          (falsa identità + senso di urgenza).
+          <ul>
+            <li>Un operatore IT autentico <strong>non chiede mai</strong> credenziali o accesso remoto via chat.</li>
+            <li>Quando senti pressione e urgenza ingiustificata, è un <strong>red flag</strong>.</li>
+            <li>La verifica tramite canali ufficiali è sempre la scelta giusta, anche se "rallenta".</li>
+          </ul>`;
+      } else if (state.refusalScore >= 3 && state.askedVerification) {
+        type = "success";
+        title = "Ottima difesa — attacco neutralizzato";
+        icon = "✓";
+        body = `
+          Hai riconosciuto i segnali del social engineering e hai <strong>rifiutato di collaborare</strong>
+          senza prima verificare l'identità di Andrea attraverso canali ufficiali.
+          <ul>
+            <li>Hai mantenuto la calma di fronte alla pressione e all'urgenza artificiale.</li>
+            <li>Hai richiesto verifica tramite procedure ufficiali (ticket, helpdesk, responsabile).</li>
+            <li>Non hai condiviso credenziali né accesso remoto.</li>
+          </ul>
+          Ricorda di <strong>segnalare</strong> sempre questi tentativi al SOC aziendale.`;
+      } else {
+        type = "neutral";
+        title = "Simulazione conclusa — margini di miglioramento";
+        icon = "!";
+        body = `
+          Non hai ceduto credenziali, ma la tua difesa è stata <strong>parziale</strong>.
+          In situazioni reali è importante:
+          <ul>
+            <li>chiudere subito il canale sospetto e <strong>verificare</strong> tramite numeri o indirizzi ufficiali noti;</li>
+            <li>non lasciarsi influenzare dall'<strong>urgenza artificiale</strong>;</li>
+            <li>segnalare l'episodio al <strong>SOC</strong> o al referente sicurezza.</li>
+          </ul>`;
+      }
+
+      const card = document.createElement("div");
+      card.className = `feedback-card ${type}`;
+      card.setAttribute("role", "status");
+      card.tabIndex = -1;
+      card.innerHTML = `
+        <div class="feedback-header">
+          <div class="feedback-icon" aria-hidden="true">${icon}</div>
+          <span>${title}</span>
+        </div>
+        <div class="feedback-body">${body}</div>
+        <button type="button" class="restart-btn" id="restartBtn">↻ Ricomincia la simulazione</button>
+      `;
+      chatBody.appendChild(card);
+      chatBody.scrollTop = chatBody.scrollHeight;
+      card.focus();
+
+      document.getElementById("restartBtn").addEventListener("click", restart);
+
+      announce("Simulazione completata.");
+
+      /* =========================================================
+         INTEGRAZIONE STORYLINE 360
+         Imposta Sim_EvalComplete = true al termine,
+         indipendentemente dall'esito.
+         ========================================================= */
+      try {
+        let player = null;
+        if (window.parent && typeof window.parent.GetPlayer === "function") {
+          player = window.parent.GetPlayer();
+        } else if (window.top && typeof window.top.GetPlayer === "function") {
+          player = window.top.GetPlayer();
+        }
+        if (player && typeof player.SetVar === "function") {
+          player.SetVar("Sim_EvalComplete", true);
+          console.log("[Storyline] Sim_EvalComplete impostata a true");
+        } else {
+          console.warn("[Storyline] Player non trovato (fuori da Storyline?).");
+        }
+      } catch (err) {
+        console.error("[Storyline] Errore impostando Sim_EvalComplete:", err);
+      }
+    }
+
+    function restart() {
+      state.turn = 0;
+      state.complianceScore = 0;
+      state.refusalScore = 0;
+      state.sharedSensitive = false;
+      state.askedVerification = false;
+      state.gaveRemoteAccess = false;
+      state.ended = false;
+      chatBody.innerHTML = "";
+      userInput.disabled = false;
+      sendBtn.disabled = false;
+      userInput.placeholder = "Scrivi la tua risposta...";
+      updateTurnBadge();
+      startSimulation();
+    }
+
+    /* ============================================================
+       INPUT
+       ============================================================ */
+    sendBtn.addEventListener("click", () => {
+      const v = userInput.value.trim();
+      if (!v || state.ended) return;
+      userInput.value = "";
+      handleFreeInput(v);
+    });
+
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+
+    document.getElementById("skip-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      const firstChoice = chatBody.querySelector(".choice-btn:not(:disabled)");
+      if (firstChoice) firstChoice.focus();
+      else userInput.focus();
+    });
+
+    /* ============================================================
+       AVVIO
+       ============================================================ */
+    function startSimulation() {
+      updateTurnBadge();
+      addTyping();
+      setTimeout(() => {
+        removeTyping();
+        addMsg(ANDREA_OPENING, "bot");
+        setTimeout(renderChoices, 350);
+      }, 900);
+    }
+
+    window.addEventListener("load", startSimulation);
+  </script>
+
+</body>
+</html>
